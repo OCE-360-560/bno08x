@@ -96,8 +96,15 @@ Hover over any of them in VS Code for the full documentation from `bno08x.h`.
   bytes are kept (only the startup advertisement is that long, and it isn't used).
 - **Unexpected resets:** if the chip says "reset complete" after init, the driver
   sends every Set Feature again.
-- **INT is optional.** With INT wired, `bno08x_service()` does no I2C traffic when
-  the chip has nothing waiting. Without it, each call reads one 4-byte header.
+- **INT and RST are optional.** What each one is for:
+  - **INT** (the chip's H_INTN, active low): the chip pulls it low when it has a
+    packet waiting. With INT wired, `bno08x_service()` checks the pin and does no
+    I2C traffic when nothing is waiting. Without it, every call reads a 4-byte
+    header over I2C just to find out, which keeps the bus busy in a fast loop.
+  - **RST** (the chip's NRST, active low): with it wired, `bno08x_init()` resets the
+    chip by pulling the pin low, which works even if the chip has stopped answering
+    on I2C. Without it, the driver sends a reset command over I2C instead, which only
+    works while the chip is still listening.
 - **One IMU per program.** State lives in file-level variables.
 - Not supported: SPI and UART modes, batching, calibration commands (save/clear
   dynamic calibration), FRS records, the gyro-integrated rotation vector channel.
