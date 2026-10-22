@@ -5,7 +5,7 @@ Raspberry Pi Pico SDK, written for OCE360/560. The chip runs its own sensor
 fusion and sends *reports*; this driver turns on the reports you ask for and
 keeps the newest value of each. Plain C11, no dynamic memory, about 650 lines with comments.
 
-**Status (2026-10-20):** compiles with no warnings (SDK 2.3.0, `pico2`), passes
+**Status (2026-10-22):** tare added. Compiles with no warnings (SDK 2.3.0, `pico2`), passes
 host tests against a simulated chip, and runs on a Pico 2 with an Adafruit BNO085
 breakout (product 4754) at 100 kHz.
 
@@ -62,6 +62,8 @@ while (true) {
 | `bno08x_service()` | reads every waiting packet (up to 10) and keeps the newest value of each report; call it often |
 | `bno08x_get_quaternion(id, &q)` | newest rotation vector, game rotation vector, or geomagnetic rotation vector; true if new since the last call |
 | `bno08x_get_vector(id, &v)` | newest accelerometer, gyroscope, magnetometer, linear acceleration, or gravity; true if new |
+| `bno08x_tare_now(axes, basis)` | makes the current orientation the new zero (all axes, or heading only); lasts until a reset or `bno08x_clear_tare()` |
+| `bno08x_clear_tare()` | undoes the tare |
 
 Hover over any of them in VS Code for the full documentation from `bno08x.h`.
 
@@ -106,6 +108,8 @@ Hover over any of them in VS Code for the full documentation from `bno08x.h`.
     on I2C. Without it, the driver sends a reset command over I2C instead, which only
     works while the chip is still listening.
 - **One IMU per program.** State lives in file-level variables.
+- **Tare is not saved.** The driver sends "tare now" and "set reorientation" (to clear it),
+  never "persist tare", so an IMU reset always clears a tare.
 - Not supported: SPI and UART modes, batching, calibration commands (save/clear
   dynamic calibration), FRS records, the gyro-integrated rotation vector channel.
 

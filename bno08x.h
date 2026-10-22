@@ -121,4 +121,27 @@ bool bno08x_get_quaternion(uint8_t report_id, bno08x_quaternion_t *quaternion);
  */
 bool bno08x_get_vector(uint8_t report_id, bno08x_vector_t *vector);
 
+// Tare (SH-2 Reference Manual 6.4.4)
+#define BNO08X_TARE_Z 0x04        // heading only: today's yaw becomes 0, tilt unchanged
+#define BNO08X_TARE_ALL 0x07      // X, Y, and Z: the current orientation becomes "flat, yaw 0"
+#define BNO08X_TARE_BASIS_ROTATION_VECTOR 0
+#define BNO08X_TARE_BASIS_GAME_ROTATION_VECTOR 1
+
+/**
+ * Make the current orientation the new zero. Every motion output (rotation
+ * vectors, accelerometer, gyro, magnetometer) is reported from it until the IMU
+ * resets or bno08x_clear_tare() is called. Not saved to flash: this driver
+ * never sends the Persist Tare command.
+ *   axes:  BNO08X_TARE_ALL or BNO08X_TARE_Z
+ *   basis: BNO08X_TARE_BASIS_ROTATION_VECTOR (usual) or _GAME_ROTATION_VECTOR
+ * Returns false if the command couldn't be sent. The IMU sends no reply.
+ */
+bool bno08x_tare_now(uint8_t axes, uint8_t basis);
+
+/**
+ * Undo bno08x_tare_now(): report from the chip's own axes again.
+ * Returns false if the command couldn't be sent.
+ */
+bool bno08x_clear_tare(void);
+
 #endif

@@ -51,6 +51,13 @@
 #define REPORT_FLUSH_COMPLETED 0xEF
 #define REPORT_TIMESTAMP_REBASE 0xFA
 #define REPORT_BASE_TIMESTAMP 0xFB
+#define REPORT_COMMAND_REQUEST 0xF2    // SH-2 Reference Manual 6.3.8
+
+// Tare command (SH-2 Reference Manual 6.4.4)
+#define COMMAND_TARE 0x03
+#define TARE_NOW 0x00                  // P0 subcommand: tare with the current orientation
+#define TARE_SET_REORIENTATION 0x02    // P0 subcommand: P1 to P8 all 0 clears the tare
+#define COMMAND_REQUEST_BYTES 12       // report ID, sequence, command, P0 to P8
 
 #define SHTP_HEADER_BYTES 4
 #define SHTP_CONTINUATION_BIT 0x8000
@@ -114,6 +121,7 @@ typedef struct {
 static bno08x_config_t imu;
 static bool is_initialized = false;
 static uint8_t next_sequence[CHANNEL_COUNT];
+static uint8_t next_command_sequence;   // the Command Request's own sequence number (6.3.8)
 
 static saved_report_t newest[HIGHEST_REPORT_ID + 1];
 static uint32_t requested_period_us[HIGHEST_REPORT_ID + 1];
@@ -250,6 +258,16 @@ static int send_set_feature(uint8_t report_id, uint32_t period_us) {
     command[1] = report_id;
     write_uint32(&command[FEATURE_PERIOD_OFFSET], period_us);
     return send_packet(CHANNEL_CONTROL, command, sizeof command);
+}
+
+/** Send one Command Request (0xF2) with its parameters P0 to P8. */
+static int send_command(uint8_t command, const uint8_t parameters[9]) {
+    uint8_t request[COMMAND_REQUEST_BYTES];
+    request[0] = REPORT_COMMAND_REQUEST;
+    request[1] = next_command_sequence++;
+    request[2] = command;
+    memcpy(&request[3], parameters, 9);
+    return send_packet(CHANNEL_CONTROL, request, sizeof request);
 }
 
 /** An unexpected reset turns every report off. Turn back on the ones we asked for. */
@@ -525,4 +543,20 @@ bool bno08x_get_vector(uint8_t report_id, bno08x_vector_t *vector) {
     vector->y = raw[1] * scale;
     vector->z = raw[2] * scale;
     return take_report(&newest[report_id], &vector->status, &vector->time_us);
+}
+
+bool bno08x_tare_now(uint8_t axes, uint8_t basis) {
+    if (!is_initialized) {
+        return false;
+    }
+    uint8_t parameters[9] = {TARE_NOW, axes, basis};   // P3 to P8 reserved, 0
+    return send_command(COMMAND_TARE, parameters) == PICO_OK;
+}
+
+bool bno08x_clear_tare(void) {
+    if (!is_initialized) {
+        return false;
+    }
+    uint8_t parameters[9] = {TARE_SET_REORIENTATION};  // a zero quaternion clears the tare
+    return send_command(COMMAND_TARE, parameters) == PICO_OK;
 }
